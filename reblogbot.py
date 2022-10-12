@@ -108,14 +108,14 @@ def reblog_by_tag(client, search_template, reblog_template, dni_template=None, p
             logger.info(f'found {len(found_posts)} recent post(s) tagged #{tag}')
 
         #if no recent posts, search up to 24 hours previous
-        hours = 6
+        hours = 12
         dt = datetime.today() - timedelta(hours=hours, minutes=0)
         while len(found_posts)==0 and hours <= 24:
             found_posts = client.tagged(tag, limit=20, before = datetime.timestamp(dt))
             found_posts = [c for c in found_posts if c["reblog_key"] not in previous_reblogs and c['blog_name'] not in dni_users]
             if logger is not None:
                 logger.info(f'found {len(found_posts)} post(s) before {dt.strftime("%H:%M %p")} tagged #{tag}')
-            hours += 6
+            hours += 12
             dt = datetime.today() - timedelta(hours=hours, minutes=0)
 
         post_count = 0
@@ -156,7 +156,7 @@ if __name__ == "__main__":
     like_post = True
     log_dir = 'log'
     run_continuously = True
-    sleep_time = 30 # time in seconds to sleep before posting again
+    sleep_time = 30 # time in seconds to sleep before posting next tag search
 
     #################
 
@@ -188,7 +188,17 @@ if __name__ == "__main__":
             dt = datetime.today() + timedelta(hours=hr_delay, minutes=0)
             logger.info(f'next tag search at {dt.strftime("%H:%M %p")}')
             time.sleep(1200*hr_delay)
-        #check for manual reblogs
-        previous_reblogs.update(get_old_posts(client, reblog_args['blog'], limit=20))
+        else:
+            time.sleep(1200*12) #only search twice per day
+            dt = datetime.today() + timedelta(hours=12, minutes=0)
+            logger.info(f'{post_count} post(s) reblogged, next tag search at {dt.strftime("%H:%M %p")}')
+
         if not run_continuously:
             break
+
+        #check for manual reblogs
+        previous_reblogs.update(get_old_posts(client, reblog_args['blog'], limit=20))
+        # update templates
+        search_template = get_template(client, reblog_args['blog'], reblog_args['search_template'], logger=logger)
+        reblog_template = get_template(client, reblog_args['blog'], reblog_args['reblog_template'], logger=logger)
+        dni_template = get_template(client, reblog_args['blog'], reblog_args['dni_template'], logger=logger)
